@@ -32,6 +32,8 @@
 
 - **"¡Doble o Nada!":** Un jugador que se sienta muy confiado en su elección puede declarar "¡Doble o Nada!" antes de que se revelen las cartas. Si acierta, gana las 2 cartas. Si falla, pierde 2 cartas de su linea del tiempo.
 
+- **"La Mezcla Prohibida del DJ":** Antes de empezar a jugar, el grupo puede acordar un "artista prohibido". Si el DJ reproduce una canción de ese artista, ¡pierde un punto automáticamente!
 
+- **"¡Silencio en la Cabina (o Pierdes Carta)!":** Si durante el turno de un jugador para adivinar el año de la canción, otro jugador (que no sea el DJ) proporciona una pista verbal directa sobre el nombre de la canción o el artista (por ejemplo, diciendo la inicial del artista, una palabra del título, o "es de un grupo de los 80 que también cantó..."), el soplón pierde una carta.
 
 
