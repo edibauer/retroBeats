@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Retro Beats</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
+    <style>
+        /* Neon glow effect */
+        .neon-bg {
+            background: linear-gradient(135deg, #ff00ff, #00ffff, #00ff00);
+            animation: neonPulse 3s ease-in-out infinite;
+        }
+        @keyframes neonPulse {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+        .neon-border {
+            box-shadow: 0 0 10px #ff00ff, 0 0 20px #00ffff, 0 0 30px #00ff00;
+        }
+    </style>
+</head>
+<body class="neon-bg flex items-center justify-center min-h-screen">
+    <div class="bg-gray-900 bg-opacity-80 p-6 rounded-lg neon-border w-full max-w-md">
+        <h1 class="text-2xl font-bold text-center text-white mb-4">Retro Beats</h1>
+        <div id="status" class="text-center mb-4 text-cyan-300">Click "Start QR Scan" to begin.</div>
+        <div class="flex justify-center mb-4">
+            <video id="video" class="w-full max-w-xs rounded-lg border-2 border-pink-500" autoplay></video>
+        </div>
+        <canvas id="canvas" class="hidden"></canvas>
+        <div class="flex space-x-2 mb-4">
+            <button id="start-scan" class="w-full bg-blue-500 text-white py-2 rounded-lg hover:bg-blue-600 transition-all">Escanear Código</button>
+            <button id="stop-scan" class="w-full bg-red-500 text-white py-2 rounded-lg hover:bg-red-600 transition-all hidden">Detener Escaneo</button>
+        </div>
+        <div class="flex space-x-2">
+            <button id="play-button" class="w-full bg-green-500 text-white py-2 rounded-lg hover:bg-green-600 transition-all hidden">Reproducir</button>
+            <button id="stop-button" class="w-full bg-red-500 text-white py-2 rounded-lg hover:bg-red-600 transition-all hidden">Detener</button>
+            <button id="karaoke-button" class="w-full bg-purple-500 text-white py-2 rounded-lg hover:bg-purple-600 transition-all hidden">Karaoke</button>
+        </div>
+        <div id="player-container" class="mt-4 hidden rounded-lg overflow-hidden"></div>
+    </div>
+
+    <script>
+        let isScanning = false;
+        let video = document.getElementById('video');
+        let canvas = document.getElementById('canvas');
+        let ctx = canvas.getContext('2d');
+        let stream = null;
+        let player = null;
+
+        // Load YouTube IFrame API
+        const tag = document.createElement('script');
+        tag.src = 'https://www.youtube.com/iframe_api';
+        const firstScriptTag = document.getElementsByTagName('script')[0];
+        firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
+
+        // Initialize YouTube Player
+        window.onYouTubeIframeAPIReady = () => {
+            player = new YT.Player('player-container', {
+                height: '0',
+                width: '0',
+                events: {
+                    'onReady': () => {
+                        document.getElementById('status').textContent = 'Jugador listo?! Persiona el botón "Escanear" para comenzar';
+                    },
+                    'onStateChange': (event) => {
+                        if (event.data === YT.PlayerState.PLAYING) {
+                            document.getElementById('play-button').classList.add('hidden');
+                            document.getElementById('stop-button').classList.remove('hidden');
+                            document.getElementById('karaoke-button').classList.remove('hidden');
+                            document.getElementById('status').textContent = 'Reproduciendo...';
+                        } else if (event.data === YT.PlayerState.PAUSED || event.data === YT.PlayerState.ENDED) {
+                            document.getElementById('play-button').classList.remove('hidden');
+                            document.getElementById('stop-button').classList.add('hidden');
+                            document.getElementById('karaoke-button').classList.remove('hidden');
+                            document.getElementById('status').textContent = 'Pausa. Presion el botón de "Reproducir" para continuar o "Escanear" para leerr otro QR :)';
+                        }
+                    }
+                }
+            });
+        };
+
+        // Start QR Code Scanning
+        async function startScanning() {
+            if (isScanning) return;
+            isScanning = true;
+
+            try {
+                stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+                video.srcObject = stream;
+                video.play();
+                document.getElementById('start-scan').classList.add('hidden');
+                document.getElementById('stop-scan').classList.remove('hidden');
+                document.getElementById('status').textContent = 'Escaneando Código QR...';
+
+                canvas.width = video.videoWidth || 640;
+                canvas.height = video.videoHeight || 480;
+                scanQRCode();
+            } catch (err) {
+                document.getElementById('status').textContent = 'Camera access denied. Please allow camera access.';
+                isScanning = false;
+            }
+        }
+
+        // Stop QR Code Scanning
+        function stopScanning() {
+            if (stream) {
+                stream.getTracks().forEach(track => track.stop());
+                video.srcObject = null;
+            }
+            isScanning = false;
+            document.getElementById('start-scan').classList.remove('hidden');
+            document.getElementById('stop-scan').classList.add('hidden');
+            document.getElementById('status').textContent = 'Scan stopped. Click "Start QR Scan" to resume.';
+        }
+
+        // Scan QR Code
+        function scanQRCode() {
+            if (!isScanning) return;
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+            const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+            const code = jsQR(imageData.data, canvas.width, canvas.height);
+            
+            if (code) {
+                const youtubeUrlMatch = code.data.match(/(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/watch\?v=|youtu\.be\/)([a-zA-Z0-9_-]+)/);
+                if (youtubeUrlMatch && youtubeUrlMatch[1]) {
+                    playTrack(youtubeUrlMatch[1]);
+                    stopScanning();
+                } else {
+                    document.getElementById('status').textContent = 'Invalid YouTube URL in QR code.';
+                }
+            }
+            requestAnimationFrame(scanQRCode);
+        }
+
+        // Play YouTube Track
+        function playTrack(videoId) {
+            if (player) {
+                player.loadVideoById(videoId);
+                document.getElementById('player-container').classList.remove('hidden');
+                isKaraokeMode = false;
+                document.getElementById('karaoke-button').textContent = 'Karaoke';
+                document.getElementById('play-button').classList.add('hidden');
+                document.getElementById('stop-button').classList.remove('hidden');
+                document.getElementById('karaoke-button').classList.remove('hidden');
+                document.getElementById('status').textContent = 'Playing...';
+            } else {
+                document.getElementById('status').textContent = 'Player not ready. Please try again.';
+            }
+        }
+
+        // Play Button Handler
+        function playCurrentTrack() {
+            if (player) {
+                player.playVideo();
+            }
+        }
+
+        // Stop Button Handler
+        function stopCurrentTrack() {
+            if (player) {
+                player.pauseVideo();
+            }
+        }
+
+        // Karaoke Button Handler
+        function toggleKaraokeMode() {
+            if (player) {
+                isKaraokeMode = !isKaraokeMode;
+                if (isKaraokeMode) {
+                    player.setSize(320, 180); // Show video for karaoke
+                    document.getElementById('player-container').classList.remove('hidden');
+                    document.getElementById('karaoke-button').textContent = 'Hide Video';
+                    document.getElementById('status').textContent = 'Karaoke mode: Video visible';
+                } else {
+                    player.setSize(0, 0); // Hide video
+                    document.getElementById('player-container').classList.add('hidden');
+                    document.getElementById('karaoke-button').textContent = 'Karaoke';
+                    document.getElementById('status').textContent = player.getPlayerState() === YT.PlayerState.PLAYING ? 'Playing...' : 'Paused. Click "Play" to resume.';
+                }
+            }
+        }
+
+        // Event Listeners
+        document.getElementById('start-scan').addEventListener('click', startScanning);
+        document.getElementById('stop-scan').addEventListener('click', stopScanning);
+        document.getElementById('play-button').addEventListener('click', playCurrentTrack);
+        document.getElementById('stop-button').addEventListener('click', stopCurrentTrack);
+        document.getElementById('karaoke-button').addEventListener('click', toggleKaraokeMode);
+    </script>
+</body>
+</html>
